@@ -7,25 +7,28 @@ from tqdm import tqdm
 
 def genEnvironment(S, A, Wind, R, C, SR, SC, DR, DC, Stochastic):
     """
-
+    sets the environment for the WindyGridWorld problem
 	:param S: square number
 	:param A: movement type
-	:param Wind:
+	:param Wind: the wind level
 	:param R: row in grid
 	:param C: column in grid
 	:param SR: starting point row
 	:param SC: starting point column
-	:param DR:
-	:param DC:
-	:param Stochastic:
-	:return:
+	:param DR: destination row
+	:param DC: destination column
+	:param Stochastic: nature of wind (boolean)
+	:return: Transition states and rewards
 	"""
+
+    # set up the rewards and transition states grid
     sPrime = 1
     if (Stochastic): sPrime = 3
     T = [[[-1 for _ in range(sPrime)] for _ in range(A)] for i in range(S)]
     Reward = [-1 for _ in range(S)]
     Reward[DR * DC] = 0
 
+    #possible actions
     for i in range(R):
         for j in range(C):
             for k in range(A):
@@ -46,6 +49,7 @@ def genEnvironment(S, A, Wind, R, C, SR, SC, DR, DC, Stochastic):
                 if k == 7:  # LeftUp
                     T[i * C + j][k][0] = (i - 1) * C + j - 1 if i - 1 >= 0 and j - 1 >= 0 else i * C + j
 
+                #actions taken in the case of stochastic wind
                 if Stochastic:
                     stoc_wind = randint(Wind[j] - 1, Wind[j] + 1)
                     if Wind[j] != 0:
@@ -61,27 +65,27 @@ def genEnvironment(S, A, Wind, R, C, SR, SC, DR, DC, Stochastic):
     # print("\n")
     return T, Reward
 
-
+#egreedy descision making
 def eGreedy(Q, epsilon, t, A): return Q.index(max(Q)) if random() > epsilon/ t else randint(0, A - 1)
 
 
 def SARSA(T, R, Source, Destination, A, S, alpha, gamma, epsilon, Stochastics, Episodes, Row, C):
     """
-
-    :param T:
-    :param R:
-    :param Source:
-    :param Destination:
-    :param A:
-    :param S:
-    :param alpha:
-    :param gamma:
-    :param epsilon:
-    :param Stochastics:
-    :param Episodes:
-    :param Row:
-    :param C:
-    :return:
+    Applies the SARSA algorithm
+    :param T: Transition states
+    :param R: rewards
+    :param Source: Starting point
+    :param Destination: Goal
+    :param A: Actions
+    :param S: State
+    :param alpha: learning rate (set at 0.5)
+    :param gamma: set at 1
+    :param epsilon: set at 0.1
+    :param Stochastics: type of wind (boolean)
+    :param Episodes: the amount of episode loops
+    :param Row: row
+    :param C: column
+    :return: the amount of steps required in one episode (to reach the goal)
     """
     Q = [[0 for _ in range(A)] for _ in range(S)]
     J, K = 0, 1
@@ -112,6 +116,24 @@ def SARSA(T, R, Source, Destination, A, S, alpha, gamma, epsilon, Stochastics, E
 
 
 def Q_Learning(T, R, Source, Destination, A, S, alpha, gamma, epsilon, Stochastics, Episodes, Row, C):
+
+    """
+    Applies the Q learning algorithm
+    :param T: Transition states
+    :param R: rewards
+    :param Source: Starting point
+    :param Destination: Goal
+    :param A: Actions
+    :param S: State
+    :param alpha: learning rate (set at 0.5)
+    :param gamma: set at 1
+    :param epsilon: set at 0.1
+    :param Stochastics: type of wind (boolean)
+    :param Episodes: the amount of episode loops
+    :param Row: row
+    :param C: column
+    :return: the amount of steps required in one episode (to reach the goal)
+    """
     Q = [[0 for _ in range(A)] for _ in range(S)]
     J, K = 0, 1
 
@@ -141,6 +163,12 @@ def Q_Learning(T, R, Source, Destination, A, S, alpha, gamma, epsilon, Stochasti
 
 
 def optimal_policy(transition, src, dest):
+    """
+    generate the optimal policy
+    :param transition: rewards graph
+    :param src: the source/ start
+    :param dest: destination/ goal
+    """
     policy = [["" for _ in range(C)] for _ in range(R)]
     for i in range(len(transition)):
         if i == src:
@@ -166,13 +194,18 @@ def optimal_policy(transition, src, dest):
         print(([''.join(['{:8}'.format(str(item)) for item in policy[i]])]))
         print("\n")
 
-
+# graphs the states
 def graph(states):
     seaborn.heatmap(states)
     plt.show()
 
 
 def plot_convergence(rewards, rewards1):
+    """
+    convergence graphs to compare the two algorithms
+    :param rewards: SARSA rewards
+    :param rewards1: Qlearning rewards
+    """
     plt.plot(rewards, label="SARSA", color="#afeeee")
     plt.plot(rewards1, label="Q-Learning", color="orange")
     plt.ylabel("Training Episodes")
@@ -203,5 +236,5 @@ print("--------------------------------------")
 Q2 = Q_Learning(T, Reward, Source, Destination, A, S, alpha, gamma, epsilon, Stochastic, 100, R, C)
 plot_convergence(Q, Q2)
 
-# todo, comment, remove excess variables, change variable nomnoms
-#  modify to make it more us, make policy grraph, report
+# todo, remove excess variables, change variable nomnoms
+#  modify to make it more us, make policy graph, report
