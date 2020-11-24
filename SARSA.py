@@ -61,22 +61,41 @@ def gen_grid_states_with_wind(total_grid_size, max_number_of_moves, column_wind,
                                                                                        i - 1) * total_number_of_columns + j - 1 if i - 1 >= 0 and j - 1 >= 0 else i * total_number_of_columns + j
 
                 # actions taken in the case of stochastic wind
-                if is_stochastic:
-                    stoc_wind = randint(column_wind[j] - 1, column_wind[j] + 1)
+                transition_states[i * total_number_of_columns + j][k][0] = \
+                transition_states[i * total_number_of_columns + j][k][0] - column_wind[j] * total_number_of_columns if \
+                transition_states[i * total_number_of_columns + j][k][0] - column_wind[
+                    j] * total_number_of_columns >= 0 else transition_states[i * total_number_of_columns + j][k][0]
+
+                if is_stochastic: # this may be hard to understand but what it is doing is really simple.
+                    """
+                    So what is happening is that we are creating a transition matrix of all the potential ways an agent 
+                    can move from one state to another and then make that a list of actions for each cell. This means 
+                    that for stochastic winds, there are three actions an agent can take, one depending on wind -1, 
+                    wind+1 and wind (unless wind is 0, then no change). So we are just adding the three possible next
+                    states here based on this knowledge, the first one was already implemented above.
+                    """
                     if column_wind[j] != 0:
-                        transition_states[i * total_number_of_columns + j][k][0] = \
-                            transition_states[i * total_number_of_columns + j][k][
-                                0] - stoc_wind * total_number_of_columns if \
-                                transition_states[i * total_number_of_columns + j][k][
-                                    0] - stoc_wind * total_number_of_columns >= 0 else \
-                                transition_states[i * total_number_of_columns + j][k][0]
-                else:
-                    transition_states[i * total_number_of_columns + j][k][0] = \
-                        transition_states[i * total_number_of_columns + j][k][0] - column_wind[
-                            j] * total_number_of_columns if transition_states[i * total_number_of_columns + j][k][0] - \
-                                                            column_wind[
-                                                                j] * total_number_of_columns >= 0 else \
+                        transition_states[i * total_number_of_columns + j][k][1] = \
+                            transition_states[i * total_number_of_columns + j][k][0] - column_wind[
+                                j]-1 * total_number_of_columns if \
+                                transition_states[i * total_number_of_columns + j][k][0] - column_wind[
+                                    j]-1 * total_number_of_columns >= 0 else \
                             transition_states[i * total_number_of_columns + j][k][0]
+                        # this is for the second possible action. Here it is wind -1
+
+                        transition_states[i * total_number_of_columns + j][k][2] = \
+                            transition_states[i * total_number_of_columns + j][k][0] - column_wind[
+                                j]+1 * total_number_of_columns if \
+                                transition_states[i * total_number_of_columns + j][k][0] - column_wind[
+                                    j]+1 * total_number_of_columns >= 0 else \
+                            transition_states[i * total_number_of_columns + j][k][0]
+                        # this is for the third possible action. Here it is wind +1
+
+                    else:  # when wind is 0 but its still stochastic, we make all the actions the same
+                        transition_states[i * total_number_of_columns + j][k][1] = transition_states[i * total_number_of_columns + j][k][0]
+                        transition_states[i * total_number_of_columns + j][k][2] = transition_states[i * total_number_of_columns + j][k][0]
+
+
     # transition table that says where to go if you take a certain action.
     return transition_states, Reward
 
@@ -85,7 +104,7 @@ def gen_grid_states_with_wind(total_grid_size, max_number_of_moves, column_wind,
 def epsilon_greedy(q_value, epsilon, transition, move_type):
     """
     the epsilon greedy policy
-    :param q_value: Q state values to be passed in
+    :param q_value: rewards_value state values to be passed in
     :param epsilon: epsilon to compare with for policy
     :param transition: transition states to use
     :param move_type: 4 for Peasants Move, 8 for Kings Move
@@ -111,6 +130,7 @@ def sarsa(transition_states, rewards, where_to_start, destination, move_type, to
     :param total_number_of_columns: column
     :return: the amount of steps required in one episode (to reach the goal)
     """
+    possibilities = 3 if move_type == 8 else 1
     Q = [[0 for _ in range(move_type)] for _ in range(total_size_of_grid)]
     J, K = 0, 1
     # print("total_number_of_episodes", "Time-Steps", "Steps-In-One-Episode")
@@ -123,7 +143,8 @@ def sarsa(transition_states, rewards, where_to_start, destination, move_type, to
         a = epsilon_greedy(Q[s], epsilon, K, move_type)
         states_visited[3][0] += 1
         while s != destination:
-            s1 = transition_states[s][a][0]
+            which_wind = randint(0, possibilities-1)
+            s1 = transition_states[s][a][which_wind]
             r = rewards[s1]
             a1 = epsilon_greedy(Q[s1], epsilon, K, move_type)
             Q[s][a] = Q[s][a] + alpha * (r + gamma * Q[s1][a1] - Q[s][a])
@@ -134,7 +155,8 @@ def sarsa(transition_states, rewards, where_to_start, destination, move_type, to
         K += 1
         steps_in_one_episode.append(I)
         # print(J, K - 1, I)
-    graph(states_visited)
+    move_kind = "Stochastic & King's" if move_type == 8 else "Non Stochastic & Peasant's"
+    graph(states_visited, "SARSA: " + move_kind + " Moves")
     optimal_policy(Q, where_to_start, destination)
     return steps_in_one_episode
 
@@ -157,10 +179,8 @@ def q_learning_algo(transition_states, reward, starting_point, destination, move
     :return: the amount of steps required in one episode (to reach the goal)
     """
     Q = [[0 for _ in range(move_type)] for _ in range(total_state_size)]
+    possibilities = 3 if move_type == 8 else 1
     J, K = 0, 1
-
-    # print("total_number_of_episodes", "Time-Steps", "Steps-In-One-Episode")
-    # print(J, K - 1, 0)
     states_visited = [[0 for _ in range(total_columns)] for _ in range(total_rows)]
     steps_in_one_episode = []
     for _ in tqdm(range(total_number_of_episodes)):
@@ -168,8 +188,9 @@ def q_learning_algo(transition_states, reward, starting_point, destination, move
         s = starting_point
         states_visited[s // 10][s % 10] += 1
         while s != destination:
+            which_wind = randint(0, possibilities - 1)
             a = epsilon_greedy(Q[s], epsilon, K, move_type)
-            s1 = transition_states[s][a][0]
+            s1 = transition_states[s][a][which_wind]
             r = reward[s1]
             Q[s][a] = Q[s][a] + alpha * (r + gamma * max(Q[s1]) - Q[s][a])
             s = s1
@@ -179,37 +200,26 @@ def q_learning_algo(transition_states, reward, starting_point, destination, move
         K += 1
         steps_in_one_episode.append(I)
         # print(J, K - 1, I)
-    graph(states_visited)
+    move_kind = "Stochastic & King's" if move_type == 8 else "Non Stochastic & Peasant's"
+    graph(states_visited, "rewards_value Learning: " + move_kind + " Moves")
     optimal_policy(Q, starting_point, destination)
     return steps_in_one_episode
 
 
 def optimal_policy(transition, src, dest):
-    """
-    generate the optimal policy
-    :param transition: rewards graph
-    :param src: the source/ start
-    :param dest: destination/ goal
-    """
     policy = [["" for _ in range(10)] for _ in range(7)]
+    actions = ["^", ">", "⌄", "<", "➚", "⬊", "⬋", "⬉"]
     for i in range(len(transition)):
-        if i == src:
-            max_action = "total_size_of_grid"
-        elif i == dest:
+        # if i == src:
+        #     max_action = "S"
+        if i == dest:
             max_action = "G"
         else:
             max_val = -99999
-            for j in range(4):
+            for j in range(len(transition[i])):
                 if transition[i][j] >= max_val:
                     max_val = transition[i][j]
-                    if j == 0:
-                        max_action = "^"
-                    elif j == 1:
-                        max_action = ">"
-                    elif j == 2:
-                        max_action = "⌄"
-                    else:
-                        max_action = "<"
+                    max_action = actions[j]
         policy[i // 10][i % 10] = max_action
 
     for i in range(len(policy)):
@@ -218,12 +228,13 @@ def optimal_policy(transition, src, dest):
 
 
 # graphs the states
-def graph(states):
+def graph(states, title):
     seaborn.heatmap(states)
+    plt.title(title)
     plt.show()
 
 
-def plot_convergence(rewards, rewards1):
+def plot_convergence(rewards, rewards1, title):
     """
     convergence graphs to compare the two algorithms
     :param rewards: SARSA rewards
@@ -234,7 +245,9 @@ def plot_convergence(rewards, rewards1):
     plt.ylabel("Training total_number_of_episodes")
     plt.xlabel("Steps/Episode")
     plt.legend(loc="upper left")
+    plt.title(title)
     plt.show()
+
 
 
 def main():
@@ -246,18 +259,35 @@ def main():
     alpha = 0.5
     gamma = 1
     epsilon = 0.1
-    total_episodes = 100
+    total_episodes = 1000000
 
     total_states = rows * column
     flattened_start_point = start_point_row * column + start_point_column
     destination_point = dest_point_row * column + dest_point_column
 
-    transition, reward = gen_grid_states_with_wind(total_states, move_type, wind, rows, column,  dest_point_row, dest_point_column, stochastic)
+    # transition, reward = gen_grid_states_with_wind(total_states, move_type, wind, rows, column,  dest_point_row, dest_point_column, stochastic)
+    # print("Non Stochastic & Peasant's Moves")
+    # print("SARSA")
+    # steps_per_episode_sarsa = sarsa(transition, reward, flattened_start_point, destination_point, move_type, total_states, alpha, gamma, epsilon, total_episodes, rows, column)
+    # print("--------------------------------------")
+    # print("rewards_value Learning")
+    # steps_per_episode_q_learning = q_learning_algo(transition, reward, flattened_start_point, destination_point, move_type, total_states, alpha, gamma, epsilon, 1000000, rows, column)
+    # plot_convergence(steps_per_episode_sarsa, steps_per_episode_q_learning, "Non-Stochastic & Peasant's Moves\nNumber of Training Episodes vs. Steps Per Episode")
 
-    steps_per_episode_sarsa = sarsa(transition, reward, flattened_start_point, destination_point, move_type, total_states, alpha, gamma, epsilon, total_episodes, rows, column)
+    print("Stochastic & King's Moves")
+    stochastic = True
+    move_type = 8
+    transition, reward = gen_grid_states_with_wind(total_states, move_type, wind, rows, column, dest_point_row,
+                                                   dest_point_column, stochastic)
+    print("SARSA")
+    steps_per_episode_sarsa = sarsa(transition, reward, flattened_start_point, destination_point, move_type,
+                                    total_states, alpha, gamma, epsilon, total_episodes, rows, column)
     print("--------------------------------------")
-    steps_per_episode_q_learning = q_learning_algo(transition, reward, flattened_start_point, destination_point, move_type, total_states, alpha, gamma, epsilon, 100, rows, column)
-    plot_convergence(steps_per_episode_sarsa, steps_per_episode_q_learning)
+    print("rewards_value Learning")
+    steps_per_episode_q_learning = q_learning_algo(transition, reward, flattened_start_point, destination_point,
+                                                   move_type, total_states, alpha, gamma, epsilon, 1000000, rows, column)
+    plot_convergence(steps_per_episode_sarsa, steps_per_episode_q_learning,
+                     "Stochastic & King's Moves\nNumber of Training Episodes vs. Steps Per Episode")
 
 # todo  modify to make it more us, make policy graph, report
 if __name__ == '__main__':
