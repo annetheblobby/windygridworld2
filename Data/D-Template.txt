@@ -1,8 +1,8 @@
 <number of rows> <number of columns> #Dimension of Grid
 <Source row index> <Source column index> <Destination row index> <Destination column index> #Indexing Start from 0.
-<Wind at column #0> <Wind at column #1> ... <Wind at column #n> #Wind Array
+<Wind at column #0> <column_wind at column #1> ... <column_wind at column #n> #column_wind Array
 <Number of moves> #Allowed values : 4 or 8
-<Nature of Wind> #Stochastic : 1 , Non-Stochastic : 0
+<Nature of Wind> #is_stochastic : 1 , Non-is_stochastic : 0
 <alpha>
 <gamma>
 <epsilon>
